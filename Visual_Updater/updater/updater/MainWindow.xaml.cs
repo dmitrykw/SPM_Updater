@@ -27,17 +27,30 @@ namespace updater
         public MainWindow()
         {
             InitializeComponent();
-                                 
+            StartUpdate();
+        }
 
+
+        private void StartUpdate()
+        {
             Task.Run(() =>
             {               
                 Updater updater = new Updater(incrementProgressBar, incrementStatus);
-                updater.updateCompletedEvent += Updater_updateCompletedEvent;
+                updater.UpdateCompletedEvent += Updater_UpdateCompletedEvent;
+                updater.UpdateFailedEvent += Updater_UpdateFailedEvent;
                 updater.UpdateAllFiles();
             });
         }
 
-        private void Updater_updateCompletedEvent()
+        private void Updater_UpdateFailedEvent()
+        {
+            this.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                TryAgainButton.Visibility = Visibility.Visible;
+            }));
+        }
+
+        private void Updater_UpdateCompletedEvent()
         {
             this.Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -57,8 +70,15 @@ namespace updater
         {
             this.Dispatcher.BeginInvoke(new Action(() =>
             {
-                 StatusLabel.Content = status_text;
+                StatusLabel.Content = status_text;
+                StatusLabel.ToolTip = status_text;
             }));
+        }
+
+        private void TryAgainButton_Click(object sender, RoutedEventArgs e)
+        {
+            TryAgainButton.Visibility = Visibility.Collapsed;
+            StartUpdate();
         }
     }
 }

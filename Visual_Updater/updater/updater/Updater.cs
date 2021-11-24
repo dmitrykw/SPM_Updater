@@ -13,7 +13,8 @@ namespace updater
     class Updater
     {
 
-        public event Action updateCompletedEvent;
+        public event Action UpdateCompletedEvent;
+        public event Action UpdateFailedEvent;
 
         Action<long,long> incrementProgress;
         Action<string> incrementStatus;
@@ -27,22 +28,45 @@ namespace updater
 
         public void UpdateAllFiles()
         {
-            incrementStatus.Invoke("Starting Update...");            
+            incrementStatus.Invoke("Starting Update...Wait(7)");
+            Thread.Sleep(1000);
+            incrementStatus.Invoke("Starting Update...Wait(6)");
+            Thread.Sleep(1000);
+            incrementStatus.Invoke("Starting Update...Wait(5)");
+            Thread.Sleep(1000);
+            incrementStatus.Invoke("Starting Update...Wait(4)");
+            Thread.Sleep(1000);
+            incrementStatus.Invoke("Starting Update...Wait(3)");
+            Thread.Sleep(1000);
+            incrementStatus.Invoke("Starting Update...Wait(2)");
+            Thread.Sleep(1000);
+            incrementStatus.Invoke("Starting Update...Wait(1)");
+            Thread.Sleep(1000);
 
-            Thread.Sleep(7000);
+            incrementStatus.Invoke("Create temp folder");
+
+            try
+            {
+                if (File.Exists("update.zip")) //Если файлы существуют удалим их
+                {
+                    File.Delete("update.zip");
+                }
+
+
+                if (Directory.Exists(Directory.GetCurrentDirectory() + "\\temp\\")) //Если директория существует удалим её
+                {
+                    Directory.Delete(Directory.GetCurrentDirectory() + "\\temp\\", true);
+                }
+            }
+            catch
+            {
+                incrementStatus.Invoke("Cannot create temp folder. Check app folder ntfs permissions.");
+                UpdateFailedEvent?.Invoke();
+                return;
+            }
 
             incrementStatus.Invoke("Downloading files");
 
-            if (File.Exists("update.zip")) //Если файлы существуют удалим их
-            {
-                File.Delete("update.zip");
-            }
-
-
-            if (Directory.Exists(Directory.GetCurrentDirectory() + "\\temp\\")) //Если директория существует удалим её
-            {
-                Directory.Delete(Directory.GetCurrentDirectory() + "\\temp\\", true);
-            }
             try
             {
 
@@ -56,9 +80,10 @@ namespace updater
             catch
             {
                 
-                incrementStatus.Invoke("Error: Cannot connect to update server!");                
+                incrementStatus.Invoke("Error: Cannot connect to update server!");
+                UpdateFailedEvent?.Invoke();
                 return;
-            }            
+            }
         }
 
         private void Client_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
@@ -70,54 +95,70 @@ namespace updater
         {
             incrementStatus.Invoke("Updating Files");
 
-
-            string TempDirectoryPath = Directory.GetCurrentDirectory() + "\\temp\\";
-
-            Directory.CreateDirectory(TempDirectoryPath);
-
-            ZipFile.ExtractToDirectory("update.zip", TempDirectoryPath);
-
-            File.Delete("update.zip");
-
-            //Записываем в переменную количество файлов
-            int FileCounter = Directory.GetFiles(TempDirectoryPath, "*.*", SearchOption.TopDirectoryOnly).Length;
-
-
-            // Получаем полные имена (с путем) файлов 
-            string[] filesArr = new string[FileCounter];
-            filesArr = Directory.GetFiles(TempDirectoryPath, "*.*", SearchOption.TopDirectoryOnly);
-
-
-            long handledFilesCounter = 1;
-            foreach (string file in filesArr) //В цикле будем копировать каждый файл из временной папке в основную с заменой исходных
+            if (File.Exists("update.zip") && new FileInfo("update.zip").Length > 0)
             {
-
-                string filename = file.Substring(file.LastIndexOf('\\') + 1); // Отрезаем путь
                 try
                 {
-                    File.Copy(TempDirectoryPath + filename, Directory.GetCurrentDirectory() + "\\" + filename, true);
-                    incrementProgress.Invoke(handledFilesCounter++, filesArr.Count());
-                    incrementStatus.Invoke("Updating File: " + filename);
-                    Thread.Sleep(100);
+                    string TempDirectoryPath = Directory.GetCurrentDirectory() + "\\temp\\";
+
+                    Directory.CreateDirectory(TempDirectoryPath);
+
+                    ZipFile.ExtractToDirectory("update.zip", TempDirectoryPath);
+
+                    File.Delete("update.zip");
+
+                    //Записываем в переменную количество файлов
+                    int FileCounter = Directory.GetFiles(TempDirectoryPath, "*.*", SearchOption.TopDirectoryOnly).Length;
+
+
+                    // Получаем полные имена (с путем) файлов 
+                    string[] filesArr = new string[FileCounter];
+                    filesArr = Directory.GetFiles(TempDirectoryPath, "*.*", SearchOption.TopDirectoryOnly);
+
+
+                    long handledFilesCounter = 1;
+                    foreach (string file in filesArr) //В цикле будем копировать каждый файл из временной папке в основную с заменой исходных
+                    {
+
+                        string filename = file.Substring(file.LastIndexOf('\\') + 1); // Отрезаем путь
+                        try
+                        {
+                            File.Copy(TempDirectoryPath + filename, Directory.GetCurrentDirectory() + "\\" + filename, true);
+                            incrementProgress.Invoke(handledFilesCounter++, filesArr.Count());
+                            incrementStatus.Invoke("Updating File: " + filename);
+                            Thread.Sleep(100);
+                        }
+                        catch
+                        {
+                            try{Directory.Delete(Directory.GetCurrentDirectory() + "\\temp\\", true); }catch{}
+                            incrementStatus.Invoke("Error: " + filename + " is busy. Restart program or reboot your computer.");
+                            UpdateFailedEvent?.Invoke();
+                            return;
+                        }
+                    }
+
+                    Directory.Delete(Directory.GetCurrentDirectory() + "\\temp\\", true); //Удаляем временную папку
+
+                    incrementStatus.Invoke("Update Complete");
+                    Thread.Sleep(1000);
+
+                    System.Diagnostics.Process.Start("Spm.exe"); //Запускаем SPM Monitoring.
+
+                    UpdateCompletedEvent?.Invoke();
                 }
-                catch
+                catch (Exception ex)
                 {
-                    Directory.Delete(Directory.GetCurrentDirectory() + "\\temp\\", true);
-                    incrementStatus.Invoke("Error: Some files is busy. Restart program or reboot your computer.");
+                    incrementStatus.Invoke("Exception: " + ex.Message);
+                    UpdateFailedEvent?.Invoke();
                     return;
                 }
             }
-
-            Directory.Delete(Directory.GetCurrentDirectory() + "\\temp\\", true); //Удаляем временную папку
-
-            incrementStatus.Invoke("Update Complete");
-            Thread.Sleep(1000);
-
-            System.Diagnostics.Process.Start("Spm.exe"); //Запускаем SPM Monitoring.
-
-            updateCompletedEvent?.Invoke();
+            else
+            {
+                incrementStatus.Invoke("Update source file not found or corrupted.");
+                UpdateFailedEvent?.Invoke();
+                return;
+            }
         }
-
-        
     }
 }

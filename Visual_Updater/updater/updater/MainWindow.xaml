@@ -7,8 +7,9 @@
         mc:Ignorable="d"
         Title="update in progress..." Height="130" Width="350">
     <Grid Background="#29292d">
+        <Button x:Name="TryAgainButton" Content="Try again" Margin="137,18,133,53" Panel.ZIndex="4" Visibility="Collapsed" Click="TryAgainButton_Click"/>
         <StackPanel>
-            <ProgressBar Margin="5,10,0,0" x:Name="MyProgressBar" Height="40" Width="300"/>            
+            <ProgressBar Margin="5,10,0,0" x:Name="MyProgressBar" Height="40" Width="300"/>
             <Label Margin="22,5" x:Name="StatusLabel" Height="28" Width="300" FontSize="12" Foreground="#a1a1a3"/>
         </StackPanel>
     </Grid>
