@@ -12,6 +12,13 @@ namespace updater
 {
     class Updater
     {
+        private const string updateuri = "http://soft.piter-furry.ru/Software/Pinger/update/update.deploy";
+        private const string tempdirname = "spm_update_tmp";
+        private const string archivename = "update.zip";
+
+        private string _appDir = Directory.GetCurrentDirectory();
+        private string _tempDir = Directory.GetCurrentDirectory() + "\\" + tempdirname + "\\";
+
 
         public event Action UpdateCompletedEvent;
         public event Action UpdateFailedEvent;
@@ -43,19 +50,21 @@ namespace updater
             incrementStatus.Invoke("Starting Update...Wait(1)");
             Thread.Sleep(1000);
 
-            incrementStatus.Invoke("Create temp folder");
+            
+
+            incrementStatus.Invoke("Create temp folder");            
 
             try
             {
-                if (File.Exists("update.zip")) //Если файлы существуют удалим их
+                if (File.Exists(archivename)) //Если файлы существуют удалим их
                 {
-                    File.Delete("update.zip");
+                    File.Delete(archivename);
                 }
 
 
-                if (Directory.Exists(Directory.GetCurrentDirectory() + "\\temp\\")) //Если директория существует удалим её
+                if (Directory.Exists(_tempDir)) //Если директория существует удалим её
                 {
-                    Directory.Delete(Directory.GetCurrentDirectory() + "\\temp\\", true);
+                    Directory.Delete(_tempDir, true);
                 }
             }
             catch
@@ -74,7 +83,7 @@ namespace updater
                 {
                     client.DownloadProgressChanged += Client_DownloadProgressChanged;
                     client.DownloadFileCompleted += Client_DownloadFileCompleted; ;
-                    client.DownloadFileTaskAsync(new Uri("http://soft.piter-furry.ru/Software/Pinger/update/update.deploy"), "update.zip");
+                    client.DownloadFileTaskAsync(new Uri(updateuri), archivename);
                 }
             }
             catch
@@ -95,49 +104,52 @@ namespace updater
         {
             incrementStatus.Invoke("Updating Files");
 
-            if (File.Exists("update.zip") && new FileInfo("update.zip").Length > 0)
+            if (File.Exists(archivename) && new FileInfo(archivename).Length > 0)
             {
                 try
                 {
-                    string TempDirectoryPath = Directory.GetCurrentDirectory() + "\\temp\\";
+                    
+                    Directory.CreateDirectory(_tempDir);
 
-                    Directory.CreateDirectory(TempDirectoryPath);
+                    ZipFile.ExtractToDirectory(archivename, _tempDir);
 
-                    ZipFile.ExtractToDirectory("update.zip", TempDirectoryPath);
+                    File.Delete(archivename);
 
-                    File.Delete("update.zip");
+                    
 
-                    //Записываем в переменную количество файлов
-                    int FileCounter = Directory.GetFiles(TempDirectoryPath, "*.*", SearchOption.TopDirectoryOnly).Length;
-
-
-                    // Получаем полные имена (с путем) файлов 
-                    string[] filesArr = new string[FileCounter];
-                    filesArr = Directory.GetFiles(TempDirectoryPath, "*.*", SearchOption.TopDirectoryOnly);
+                    // Получаем полные имена (с путем) файлов                     
+                    List<string> files = Directory.GetFiles(_tempDir, "*.*", SearchOption.AllDirectories).ToList();
 
 
-                    long handledFilesCounter = 1;
-                    foreach (string file in filesArr) //В цикле будем копировать каждый файл из временной папке в основную с заменой исходных
+                    int handledFilesCounter = 1;
+                    foreach (string file in files) //В цикле будем копировать каждый файл из временной папке в основную с заменой исходных
                     {
-
-                        string filename = file.Substring(file.LastIndexOf('\\') + 1); // Отрезаем путь
+                        //Filename относительно _tempDir
+                        string filename = file.Substring(file.LastIndexOf(tempdirname) + tempdirname.Count() + 1).Trim('\\'); // Отрезаем путь
                         try
                         {
-                            File.Copy(TempDirectoryPath + filename, Directory.GetCurrentDirectory() + "\\" + filename, true);
-                            incrementProgress.Invoke(handledFilesCounter++, filesArr.Count());
+                            if (filename.Contains('\\'))
+                            {
+                                string dirname = filename.Substring(0,  filename.LastIndexOf('\\'));
+                                if (!Directory.Exists(dirname)) { Directory.CreateDirectory(dirname); }
+                            }
+
+                            File.Copy(file, _appDir + "\\" + filename, true);
+
+                            incrementProgress.Invoke(handledFilesCounter++, files.Count());
                             incrementStatus.Invoke("Updating File: " + filename);
                             Thread.Sleep(100);
                         }
                         catch
                         {
-                            try{Directory.Delete(Directory.GetCurrentDirectory() + "\\temp\\", true); }catch{}
+                            try{Directory.Delete(_tempDir, true); }catch{}
                             incrementStatus.Invoke("Error: " + filename + " is busy. Restart program or reboot your computer.");
                             UpdateFailedEvent?.Invoke();
                             return;
                         }
                     }
 
-                    Directory.Delete(Directory.GetCurrentDirectory() + "\\temp\\", true); //Удаляем временную папку
+                    Directory.Delete(_tempDir, true); //Удаляем временную папку
 
                     incrementStatus.Invoke("Update Complete");
                     Thread.Sleep(1000);
