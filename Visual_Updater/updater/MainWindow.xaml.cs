@@ -35,7 +35,7 @@ namespace updater
         {
             Task.Run(() =>
             {               
-                Updater updater = new Updater(incrementProgressBar, incrementStatus);
+                Updater updater = new Updater(IncrementProgressBar, IncrementStatus, App.UpdateFileURI);
                 updater.UpdateCompletedEvent += Updater_UpdateCompletedEvent;
                 updater.UpdateFailedEvent += Updater_UpdateFailedEvent;
                 updater.UpdateAllFiles();
@@ -58,7 +58,7 @@ namespace updater
             }));
         }
 
-        private void incrementProgressBar(long bytesReceived, long totalBytes)
+        private void IncrementProgressBar(long bytesReceived, long totalBytes)
         {
             this.Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -66,7 +66,7 @@ namespace updater
             }));
         }
 
-        private void incrementStatus(string status_text)
+        private void IncrementStatus(string status_text)
         {
             this.Dispatcher.BeginInvoke(new Action(() =>
             {

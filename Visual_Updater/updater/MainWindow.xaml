@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:updater"
         mc:Ignorable="d"
-        Title="update in progress..." Height="130" Width="350">
+        Title="update in progress..." Height="130" Width="350" ResizeMode="NoResize">
     <Grid Background="#29292d">
         <Button x:Name="TryAgainButton" Content="Try again" Margin="137,18,133,53" Panel.ZIndex="4" Visibility="Collapsed" Click="TryAgainButton_Click"/>
         <StackPanel>

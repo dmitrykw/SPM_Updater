@@ -11,54 +11,56 @@ using System.Threading.Tasks;
 namespace updater
 {
     class Updater
-    {
-        private const string updateuri = "http://soft.piter-furry.ru/Software/Pinger/update/update.deploy";
-        private const string tempdirname = "spm_update_tmp";
-        private const string archivename = "update.zip";
+    {        
+        private const string _tempdirname = "spm_update_tmp";
+        private const string _archivename = "update.zip";
 
-        private string _appDir = Directory.GetCurrentDirectory();
-        private string _tempDir = Directory.GetCurrentDirectory() + "\\" + tempdirname + "\\";
+        private readonly string _update_file_uri;
+
+        private readonly string _appDir = Directory.GetCurrentDirectory();
+        private readonly string _tempDir = Directory.GetCurrentDirectory() + "\\" + _tempdirname + "\\";
 
 
         public event Action UpdateCompletedEvent;
         public event Action UpdateFailedEvent;
 
-        Action<long,long> incrementProgress;
-        Action<string> incrementStatus;
+        private readonly Action<long,long> _incrementProgressAction;
+        private readonly Action<string> _incrementStatusAction;
 
-        public Updater(Action<long, long> incrementProgress, Action<string> incrementStatus)
+        public Updater(Action<long, long> incrementProgress, Action<string> incrementStatus, string updateFileUri)
         {
-            this.incrementProgress = incrementProgress;
-            this.incrementStatus = incrementStatus;
+            _incrementProgressAction = incrementProgress;
+            _incrementStatusAction = incrementStatus;
+            _update_file_uri = updateFileUri;
         }
 
 
         public void UpdateAllFiles()
         {
-            incrementStatus.Invoke("Starting Update...Wait(7)");
+            _incrementStatusAction.Invoke("Starting Update...Wait(7)");
             Thread.Sleep(1000);
-            incrementStatus.Invoke("Starting Update...Wait(6)");
+            _incrementStatusAction.Invoke("Starting Update...Wait(6)");
             Thread.Sleep(1000);
-            incrementStatus.Invoke("Starting Update...Wait(5)");
+            _incrementStatusAction.Invoke("Starting Update...Wait(5)");
             Thread.Sleep(1000);
-            incrementStatus.Invoke("Starting Update...Wait(4)");
+            _incrementStatusAction.Invoke("Starting Update...Wait(4)");
             Thread.Sleep(1000);
-            incrementStatus.Invoke("Starting Update...Wait(3)");
+            _incrementStatusAction.Invoke("Starting Update...Wait(3)");
             Thread.Sleep(1000);
-            incrementStatus.Invoke("Starting Update...Wait(2)");
+            _incrementStatusAction.Invoke("Starting Update...Wait(2)");
             Thread.Sleep(1000);
-            incrementStatus.Invoke("Starting Update...Wait(1)");
+            _incrementStatusAction.Invoke("Starting Update...Wait(1)");
             Thread.Sleep(1000);
 
-            
 
-            incrementStatus.Invoke("Create temp folder");            
+
+            _incrementStatusAction.Invoke("Create temp folder");            
 
             try
             {
-                if (File.Exists(archivename)) //Если файлы существуют удалим их
+                if (File.Exists(_archivename)) //Если файлы существуют удалим их
                 {
-                    File.Delete(archivename);
+                    File.Delete(_archivename);
                 }
 
 
@@ -69,12 +71,12 @@ namespace updater
             }
             catch
             {
-                incrementStatus.Invoke("Cannot create temp folder. Check app folder ntfs permissions.");
+                _incrementStatusAction.Invoke("Cannot create temp folder. Check app folder ntfs permissions.");
                 UpdateFailedEvent?.Invoke();
                 return;
             }
 
-            incrementStatus.Invoke("Downloading files");
+            _incrementStatusAction.Invoke("Downloading files");
 
             try
             {
@@ -82,14 +84,14 @@ namespace updater
                 using (var client = new WebClient())
                 {
                     client.DownloadProgressChanged += Client_DownloadProgressChanged;
-                    client.DownloadFileCompleted += Client_DownloadFileCompleted; ;
-                    client.DownloadFileTaskAsync(new Uri(updateuri), archivename);
+                    client.DownloadFileCompleted += Client_DownloadFileCompleted;
+                    client.DownloadFileTaskAsync(new Uri(_update_file_uri), _archivename);
                 }
             }
             catch
             {
-                
-                incrementStatus.Invoke("Error: Cannot connect to update server!");
+
+                _incrementStatusAction.Invoke("Error: Cannot connect to update server!");
                 UpdateFailedEvent?.Invoke();
                 return;
             }
@@ -97,23 +99,23 @@ namespace updater
 
         private void Client_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
         {
-            incrementProgress.Invoke(e.BytesReceived, e.TotalBytesToReceive);
+            _incrementProgressAction.Invoke(e.BytesReceived, e.TotalBytesToReceive);
         }
 
         private void Client_DownloadFileCompleted(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
         {
-            incrementStatus.Invoke("Updating Files");
+            _incrementStatusAction.Invoke("Updating Files");
 
-            if (File.Exists(archivename) && new FileInfo(archivename).Length > 0)
+            if (File.Exists(_archivename) && new FileInfo(_archivename).Length > 0)
             {
                 try
                 {
                     
                     Directory.CreateDirectory(_tempDir);
 
-                    ZipFile.ExtractToDirectory(archivename, _tempDir);
+                    ZipFile.ExtractToDirectory(_archivename, _tempDir);
 
-                    File.Delete(archivename);
+                    File.Delete(_archivename);
 
                     
 
@@ -125,7 +127,7 @@ namespace updater
                     foreach (string file in files) //В цикле будем копировать каждый файл из временной папке в основную с заменой исходных
                     {
                         //Filename относительно _tempDir
-                        string filename = file.Substring(file.LastIndexOf(tempdirname) + tempdirname.Count() + 1).Trim('\\'); // Отрезаем путь
+                        string filename = file.Substring(file.LastIndexOf(_tempdirname) + _tempdirname.Count() + 1).Trim('\\'); // Отрезаем путь
                         try
                         {
                             if (filename.Contains('\\'))
@@ -136,14 +138,14 @@ namespace updater
 
                             File.Copy(file, _appDir + "\\" + filename, true);
 
-                            incrementProgress.Invoke(handledFilesCounter++, files.Count());
-                            incrementStatus.Invoke("Updating File: " + filename);
+                            _incrementProgressAction.Invoke(handledFilesCounter++, files.Count());
+                            _incrementStatusAction.Invoke("Updating File: " + filename);
                             Thread.Sleep(100);
                         }
                         catch
                         {
                             try{Directory.Delete(_tempDir, true); }catch{}
-                            incrementStatus.Invoke("Error: " + filename + " is busy. Restart program or reboot your computer.");
+                            _incrementStatusAction.Invoke("Error: " + filename + " is busy. Restart program or reboot your computer.");
                             UpdateFailedEvent?.Invoke();
                             return;
                         }
@@ -151,7 +153,7 @@ namespace updater
 
                     Directory.Delete(_tempDir, true); //Удаляем временную папку
 
-                    incrementStatus.Invoke("Update Complete");
+                    _incrementStatusAction.Invoke("Update Complete");
                     Thread.Sleep(1000);
 
                     System.Diagnostics.Process.Start("Spm.exe"); //Запускаем SPM Monitoring.
@@ -160,14 +162,14 @@ namespace updater
                 }
                 catch (Exception ex)
                 {
-                    incrementStatus.Invoke("Exception: " + ex.Message);
+                    _incrementStatusAction.Invoke("Exception: " + ex.Message);
                     UpdateFailedEvent?.Invoke();
                     return;
                 }
             }
             else
             {
-                incrementStatus.Invoke("Update source file not found or corrupted.");
+                _incrementStatusAction.Invoke("Update source file not found or corrupted.");
                 UpdateFailedEvent?.Invoke();
                 return;
             }
